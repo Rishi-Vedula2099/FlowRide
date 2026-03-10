@@ -27,3 +27,22 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+*.egg-info/
+
+# Prisma
+backend/prisma/migrations/
+
+# AI Service
+ai-service/models/*.pkl
+ai-service/models/*.joblib
+
+# Misc
+*.tsbuildinfo
+package-lock.json

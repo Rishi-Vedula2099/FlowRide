@@ -1,0 +1,214 @@
+// ─── Prisma Schema for FlowRide ──────────────────────────────────────
+
+generator client {
+  provider        = "prisma-client-js"
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+}
+
+// ─── User ────────────────────────────────────────────────────────────
+
+enum UserRole {
+  RIDER
+  DRIVER
+  ADMIN
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  phone        String?
+  role         UserRole @default(RIDER)
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  driver         Driver?
+  ridesAsRider   Ride[]        @relation("RiderRides")
+  rideRequests   RideRequest[]
+  ratingsGiven   Rating[]      @relation("RatingsGiven")
+  ratingsReceived Rating[]     @relation("RatingsReceived")
+
+  @@map("users")
+}
+
+// ─── Driver ──────────────────────────────────────────────────────────
+
+model Driver {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  licenseNumber String   @unique
+  isAvailable   Boolean  @default(false)
+  isVerified    Boolean  @default(false)
+  rating        Float    @default(5.0)
+  totalRides    Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id])
+  vehicle       Vehicle?
+  rides         Ride[]         @relation("DriverRides")
+  location      DriverLocation?
+
+  @@map("drivers")
+}
+
+// ─── Vehicle ─────────────────────────────────────────────────────────
+
+enum VehicleType {
+  SEDAN
+  SUV
+  AUTO
+  BIKE
+}
+
+model Vehicle {
+  id           String      @id @default(cuid())
+  driverId     String      @unique
+  make         String
+  model        String
+  year         Int
+  color        String
+  licensePlate String      @unique
+  vehicleType  VehicleType @default(SEDAN)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  driver Driver @relation(fields: [driverId], references: [id])
+
+  @@map("vehicles")
+}
+
+// ─── Ride ────────────────────────────────────────────────────────────
+
+enum RideStatus {
+  REQUESTED
+  ACCEPTED
+  DRIVER_ARRIVING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model Ride {
+  id            String     @id @default(cuid())
+  riderId       String
+  driverId      String?
+  status        RideStatus @default(REQUESTED)
+  originLat     Float
+  originLng     Float
+  originAddress String
+  destLat       Float
+  destLng       Float
+  destAddress   String
+  vehicleType   VehicleType
+  fare          Float      @default(0)
+  distance      Float      @default(0)
+  duration      Int        @default(0) // in seconds
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  rider   User    @relation("RiderRides", fields: [riderId], references: [id])
+  driver  Driver? @relation("DriverRides", fields: [driverId], references: [id])
+  payment Payment?
+  ratings Rating[]
+
+  @@map("rides")
+}
+
+// ─── Ride Request ────────────────────────────────────────────────────
+
+model RideRequest {
+  id                String      @id @default(cuid())
+  riderId           String
+  originLat         Float
+  originLng         Float
+  originAddress     String
+  destLat           Float
+  destLng           Float
+  destAddress       String
+  vehicleType       VehicleType
+  estimatedFare     Float
+  estimatedDuration Int         @default(0) // in seconds
+  estimatedDistance  Float       @default(0) // in km
+  status            RideStatus  @default(REQUESTED)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  rider User @relation(fields: [riderId], references: [id])
+
+  @@map("ride_requests")
+}
+
+// ─── Driver Location ────────────────────────────────────────────────
+
+model DriverLocation {
+  id        String   @id @default(cuid())
+  driverId  String   @unique
+  latitude  Float
+  longitude Float
+  heading   Float?
+  speed     Float?
+  updatedAt DateTime @updatedAt
+
+  driver Driver @relation(fields: [driverId], references: [id])
+
+  @@map("driver_locations")
+}
+
+// ─── Payment ─────────────────────────────────────────────────────────
+
+enum PaymentMethod {
+  CARD
+  UPI
+  CASH
+  WALLET
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  rideId        String        @unique
+  amount        Float
+  method        PaymentMethod @default(CARD)
+  status        PaymentStatus @default(PENDING)
+  transactionId String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  ride Ride @relation(fields: [rideId], references: [id])
+
+  @@map("payments")
+}
+
+// ─── Rating ──────────────────────────────────────────────────────────
+
+model Rating {
+  id         String   @id @default(cuid())
+  rideId     String
+  fromUserId String
+  toUserId   String
+  score      Int      // 1-5
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  ride     Ride @relation(fields: [rideId], references: [id])
+  fromUser User @relation("RatingsGiven", fields: [fromUserId], references: [id])
+  toUser   User @relation("RatingsReceived", fields: [toUserId], references: [id])
+
+  @@unique([rideId, fromUserId])
+  @@map("ratings")
+}
