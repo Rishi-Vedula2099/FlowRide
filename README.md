@@ -198,6 +198,4 @@ Visit **http://localhost:3000**
 | AI Service | **Render** | Python/FastAPI deployment |
 | Database | **Neon** | Serverless PostgreSQL, 3GB free |
 
-## 📄 License
 
-MIT
